@@ -10,8 +10,10 @@
     "mysql:start": "docker run -p 3306:3306 --rm --name zkdemocracy-mysql -e MYSQL_ROOT_PASSWORD=12345 -e MYSQL_DATABASE=zkdemocracy -e MYSQL_USER=zkdemocracy -e MYSQL_PASSWORD=12345 -v zkdemocracy_mysql_data:/var/lib/mysql -d mysql:8.4",
     "mysql:stop": "docker stop zkdemocracy-mysql",
     "init:database": "ts-node scripts/init_database.ts",
+    "generate:ethereum_account": "ts-node scripts/generate_ethereum_account.ts",
     "start": "nodemon src/main.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "mocha"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
@@ -23,7 +25,11 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "@metamask/eth-sig-util": "^7.0.3",
+    "chai": "^4.3.10",
+    "mocha": "^10.2.0",
     "dotenv": "^16.4.5",
+    "ethers": "^6.13.2",
     "express": "^4.19.2",
     "mysql2": "^3.11.0"
   }
