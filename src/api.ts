@@ -2,6 +2,9 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import { Wallet } from "ethers";
 import { signMessageWithNonce, verifyAndExtractMessage, getNonce } from "../src/utils/ethereum_utils"
 import { addGroup } from "../src/services/groups_service"
+import { addGroupAdmin } from "../src/services/group_admins_service"
+import { addVoting } from "../src/services/votings_service"
+import { assignVotingToGroup } from "../src/services/votings_groups_service"
 
 import './utils/env_utils'
 
@@ -58,16 +61,60 @@ api.post('/groups/add', verifySignatureMiddleware, asyncHandler(async (req: Requ
     const group_name = req.body.extractedMessage.group_name
     const creator = req.body.extractedAddress
     const uuid = await addGroup(group_name, creator)
-    res.send(await signResponse({ 
+    res.send(await signResponse({
         group_name,
+        uuid,
         creator,
-        uuid 
+        timestamp: new Date().toISOString()
     }))
 }))
 
 
 api.post('/group_admins/add', verifySignatureMiddleware, asyncHandler(async (req: Request, res: Response) => {
-    res.send(req.body.extractedMessage)
+    if (req.body.extractedAddress != process.env.ADMIN_ADDRESS)
+        throw new Error('Only admin is allowed to add group admins!');
+
+    const group_uuid = req.body.extractedMessage.group_uuid
+    const group_admin = req.body.extractedMessage.group_admin
+    const creator = req.body.extractedAddress
+    addGroupAdmin(group_uuid, group_admin, creator)
+    res.send(await signResponse({
+        group_uuid,
+        group_admin,
+        creator,
+        timestamp: new Date().toISOString()
+    }))
+}))
+
+api.post('/votings/add', verifySignatureMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    if (req.body.extractedAddress != process.env.ADMIN_ADDRESS)
+        throw new Error('Only admin is allowed to add votings!');
+
+    const voting_name = req.body.extractedMessage.voting_name
+    const creator = req.body.extractedAddress
+    const uuid = await addVoting(voting_name, creator)
+    res.send(await signResponse({
+        voting_name,
+        uuid,
+        creator,
+        timestamp: new Date().toISOString()
+    }))
+}))
+
+api.post('/votings_groups/add', verifySignatureMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    if (req.body.extractedAddress != process.env.ADMIN_ADDRESS)
+        throw new Error('Only admin is allowed to assign groups to votings!');
+
+    const group_uuid = req.body.extractedMessage.group_uuid
+    const voting_uuid = req.body.extractedMessage.voting_uuid
+    const creator = req.body.extractedAddress
+    assignVotingToGroup(voting_uuid, group_uuid, creator)
+    res.send(await signResponse({
+        group_uuid,
+        voting_uuid,
+        creator,
+        timestamp: new Date().toISOString()
+    }))
 }))
 
 api.use((err, req, res, next) => {
