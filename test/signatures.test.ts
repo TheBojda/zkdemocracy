@@ -41,8 +41,6 @@ describe("Testing Ethereum signing and verification", () => {
             address: wallet.address
         }
 
-        console.log("envelope:", envelope)
-
         const address = verifyMessage(envelope.content, envelope.signature)
         expect(address).toBe(envelope.address)
 

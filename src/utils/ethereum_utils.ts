@@ -13,6 +13,15 @@ export async function incrementNonce(address: string) {
 }
 
 export async function verifyAndExtractMessage(payload: { content: string, signature: string, address: string }) {
+    if (!payload.content)
+        throw new Error("No content defined!")
+
+    if (!payload.signature)
+        throw new Error("No signature defined!")
+
+    if (!payload.signature)
+        throw new Error("No address defined!")
+
     const extractedAddress = verifyMessage(payload.content, payload.signature);
     if (payload.address != extractedAddress)
         throw new Error("Signature error!")
