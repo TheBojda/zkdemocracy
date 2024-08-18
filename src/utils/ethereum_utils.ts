@@ -23,7 +23,7 @@ export async function verifyAndExtractMessage(payload: { content: string, signat
     if (extractedNonce != nonce)
         throw new Error("Nonce error!")
 
-    incrementNonce(payload.address);
+    await incrementNonce(payload.address);
 
     const message = JSON.parse(toUtf8String(decodeBase64(base64message)));
     return [message, payload.address];

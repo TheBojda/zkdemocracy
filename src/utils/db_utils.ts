@@ -2,7 +2,7 @@ import { createPool } from 'mysql2/promise';
 
 import './env_utils'
 
-const pool = createPool({
+export const pool = createPool({
     host: process.env.MYSQL_HOST,
     user: process.env.MYSQL_USER,
     password: process.env.MYSQL_PASSWORD,
