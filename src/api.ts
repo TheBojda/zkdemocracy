@@ -1,10 +1,9 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import { Wallet } from "ethers";
 import { signMessageWithNonce, verifyAndExtractMessage, getNonce } from "../src/utils/ethereum_utils"
-import { addGroup } from "../src/services/groups_service"
-import { addGroupAdmin } from "../src/services/group_admins_service"
-import { addVoting } from "../src/services/votings_service"
-import { assignVotingToGroup } from "../src/services/votings_groups_service"
+import { HttpError } from "../src/utils/error_utils"
+import { addGroup, addGroupAdmin, addMemberToGroup } from "../src/services/group_management_service"
+import { addVoting, assignVotingToGroup } from "../src/services/voting_management_service"
 
 import './utils/env_utils'
 
@@ -19,7 +18,7 @@ async function verifySignatureMiddleware(req: Request, res: Response, next: Next
         const [extractedMessage, address] = await verifyAndExtractMessage(req.body);
 
         if (extractedMessage.path != req.path)
-            throw new Error("Invalid path in the signed message!")
+            throw new HttpError(400, "Invalid path in the signed message!")
 
         req.body.extractedMessage = extractedMessage
         req.body.extractedAddress = address
@@ -56,7 +55,7 @@ api.get('/nonces/:address', asyncHandler(async (req: Request, res: Response) => 
 
 api.post('/groups/add', verifySignatureMiddleware, asyncHandler(async (req: Request, res: Response) => {
     if (req.body.extractedAddress != process.env.ADMIN_ADDRESS)
-        throw new Error('Only admin is allowed to add groups!');
+        throw new HttpError(403, 'Only admin is allowed to add groups!');
 
     const group_name = req.body.extractedMessage.group_name
     const creator = req.body.extractedAddress
@@ -72,7 +71,7 @@ api.post('/groups/add', verifySignatureMiddleware, asyncHandler(async (req: Requ
 
 api.post('/group_admins/add', verifySignatureMiddleware, asyncHandler(async (req: Request, res: Response) => {
     if (req.body.extractedAddress != process.env.ADMIN_ADDRESS)
-        throw new Error('Only admin is allowed to add group admins!');
+        throw new HttpError(403, 'Only admin is allowed to add group admins!');
 
     const group_uuid = req.body.extractedMessage.group_uuid
     const group_admin = req.body.extractedMessage.group_admin
@@ -88,7 +87,7 @@ api.post('/group_admins/add', verifySignatureMiddleware, asyncHandler(async (req
 
 api.post('/votings/add', verifySignatureMiddleware, asyncHandler(async (req: Request, res: Response) => {
     if (req.body.extractedAddress != process.env.ADMIN_ADDRESS)
-        throw new Error('Only admin is allowed to add votings!');
+        throw new HttpError(403, 'Only admin is allowed to add votings!');
 
     const voting_name = req.body.extractedMessage.voting_name
     const creator = req.body.extractedAddress
@@ -103,7 +102,7 @@ api.post('/votings/add', verifySignatureMiddleware, asyncHandler(async (req: Req
 
 api.post('/votings_groups/add', verifySignatureMiddleware, asyncHandler(async (req: Request, res: Response) => {
     if (req.body.extractedAddress != process.env.ADMIN_ADDRESS)
-        throw new Error('Only admin is allowed to assign groups to votings!');
+        throw new HttpError(403, 'Only admin is allowed to assign groups to votings!');
 
     const group_uuid = req.body.extractedMessage.group_uuid
     const voting_uuid = req.body.extractedMessage.voting_uuid
@@ -117,6 +116,31 @@ api.post('/votings_groups/add', verifySignatureMiddleware, asyncHandler(async (r
     }))
 }))
 
-api.use((err, req, res, next) => {
-    res.status(500).send(err.message || 'Sorry! Something bad happened. :(');
+api.post('/groups/:group_uuid/members/add', verifySignatureMiddleware, asyncHandler(async (req: Request, res: Response) => {
+    if (req.body.extractedAddress != process.env.ADMIN_ADDRESS)
+        throw new HttpError(403, 'Only admin is allowed to assign groups to votings!');
+
+    const group_uuid = req.params.group_uuid;
+    const commitment = req.body.extractedMessage.commitment;
+    const identity_hash = req.body.extractedMessage.identity_hash;
+    const proof = req.body.extractedMessage.proof;
+    const creator = req.body.extractedAddress;
+    const merkle_root = await addMemberToGroup(group_uuid, commitment, identity_hash, proof, creator)
+    res.send(await signResponse({
+        group_uuid,
+        commitment,
+        identity_hash,
+        proof,
+        merkle_root,
+        creator,
+        timestamp: new Date().toISOString()
+    }))
+}))
+
+api.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    if (err instanceof HttpError) {
+        res.status(err.statusCode).send(err.message);
+    } else {
+        res.status(500).send(err.message || 'Sorry! Something bad happened. :(');
+    }
 });

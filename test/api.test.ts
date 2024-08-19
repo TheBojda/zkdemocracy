@@ -3,6 +3,8 @@ import request from 'supertest';
 import { api } from '../src/api'
 import { pool } from "../src/utils/db_utils"
 import { signMessageWithNonce, verifyAndExtractMessage } from "../src/utils/ethereum_utils"
+import { rebuildGroupFromDB, clearGroupCache } from "../src/services/group_management_service"
+import { Identity } from "@semaphore-protocol/core"
 
 const ADMIN_ADDRESS = "0x1C7bcE0821f78F952308F222E5d911312CA10400";
 const ADMIN_PRIVATE_KEY = "0xb16ee57cb3c497cab8aebf284ac19bb594f7a253077c3b0c15fc8ba44b6325a5";
@@ -111,5 +113,55 @@ describe("Testing the API", () => {
         const [extractedMessage, address] = await verifyAndExtractMessage(res.body);
         expect(address).toBe(SERVER_ADDRESS);
         expect(extractedMessage.creator).toBe(ADMIN_ADDRESS)
+    })
+
+    test("Add members to group", async () => {
+        for (let i = 0; i < 10; i++) {
+            const identity = new Identity()
+
+            const message = {
+                path: `/groups/${group_uuid}/members/add`,
+                commitment: identity.commitment.toString(),
+                identity_hash: identity.commitment.toString(), // in real world apps, use real identity hash like number if ID card, etc.
+                proof: 'proof',
+            }
+
+            const nonce = (await request(api).get(`/nonces/${ADMIN_ADDRESS}`)).body.nonce;
+            const payload = await signMessageWithNonce(message, ADMIN_PRIVATE_KEY, nonce)
+            const res = await request(api)
+                .post(`/groups/${group_uuid}/members/add`)
+                .send(payload)
+
+            if (res.status !== 200)
+                console.error(`Error: Expected status 200, but got ${res.status}, error: ${res.text}`);
+
+            await expect(rebuildGroupFromDB(group_uuid)).resolves.not.toThrow();
+        }
+    })
+
+    test("Add new members to group", async () => {
+        clearGroupCache(group_uuid)
+
+        for (let i = 0; i < 10; i++) {
+            const identity = new Identity()
+
+            const message = {
+                path: `/groups/${group_uuid}/members/add`,
+                commitment: identity.commitment.toString(),
+                identity_hash: identity.commitment.toString(), // in real world apps, use real identity hash like number if ID card, etc.
+                proof: 'proof',
+            }
+
+            const nonce = (await request(api).get(`/nonces/${ADMIN_ADDRESS}`)).body.nonce;
+            const payload = await signMessageWithNonce(message, ADMIN_PRIVATE_KEY, nonce)
+            const res = await request(api)
+                .post(`/groups/${group_uuid}/members/add`)
+                .send(payload)
+
+            if (res.status !== 200)
+                console.error(`Error: Expected status 200, but got ${res.status}, error: ${res.text}`);
+
+            await expect(rebuildGroupFromDB(group_uuid)).resolves.not.toThrow();
+        }
     })
 })
