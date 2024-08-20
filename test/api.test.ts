@@ -49,15 +49,14 @@ describe("Testing the API", () => {
 
     test("Add group admin", async () => {
         const message = {
-            path: '/group_admins/add',
-            group_uuid: group_uuid,
+            path: `/groups/${group_uuid}/admins/add`,
             group_admin: GROUP_ADMIN_ADDRESS
         }
 
         const nonce = (await request(api).get(`/nonces/${ADMIN_ADDRESS}`)).body.nonce;
         const payload = await signMessageWithNonce(message, ADMIN_PRIVATE_KEY, nonce)
         const res = await request(api)
-            .post('/group_admins/add')
+            .post(`/groups/${group_uuid}/admins/add`)
             .send(payload)
 
         if (res.status !== 200)
@@ -96,15 +95,14 @@ describe("Testing the API", () => {
 
     test("Assign voting to group", async () => {
         const message = {
-            path: '/votings_groups/add',
-            group_uuid: group_uuid,
-            voting_uuid: voting_uuid
+            path: `/votings/${voting_uuid}/groups/add`,
+            group_uuid: group_uuid
         }
 
         const nonce = (await request(api).get(`/nonces/${ADMIN_ADDRESS}`)).body.nonce;
         const payload = await signMessageWithNonce(message, ADMIN_PRIVATE_KEY, nonce)
         const res = await request(api)
-            .post('/votings_groups/add')
+            .post(`/votings/${voting_uuid}/groups/add`)
             .send(payload)
 
         if (res.status !== 200)
@@ -180,5 +178,31 @@ describe("Testing the API", () => {
 
         const root = (await request(api).get(`/groups/${group_uuid}/root`)).body.root;
         expect(root).toBe(group.root.toString())
+    })
+
+    test("Check merkle proof generation", async () => {
+        const identity = new Identity()
+
+        // add element
+        const message = {
+            path: `/groups/${group_uuid}/members/add`,
+            commitment: identity.commitment.toString(),
+            identity_hash: identity.commitment.toString(), // in real world apps, use real identity hash like number if ID card, etc.
+            proof: 'proof',
+        }
+
+        const nonce = (await request(api).get(`/nonces/${ADMIN_ADDRESS}`)).body.nonce;
+        const payload = await signMessageWithNonce(message, ADMIN_PRIVATE_KEY, nonce)
+        await request(api)
+            .post(`/groups/${group_uuid}/members/add`)
+            .send(payload)
+
+        // generate merkle proof
+        const res = await request(api).get(`/groups/${group_uuid}/members/${identity.commitment}/merkle_proof`)
+        const merkle_proof = res.body.merkle_proof
+        
+        const root = (await request(api).get(`/groups/${group_uuid}/root`)).body.root;
+        expect(root).toBe(merkle_proof.root)
+        expect(identity.commitment.toString()).toBe(merkle_proof.leaf)
     })
 })

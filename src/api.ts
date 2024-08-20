@@ -2,7 +2,7 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import { Wallet } from "ethers";
 import { signMessageWithNonce, verifyAndExtractMessage, getNonce } from "../src/utils/ethereum_utils"
 import { HttpError } from "../src/utils/error_utils"
-import { addGroup, addGroupAdmin, addMemberToGroup, listGroupMembers, getGroupForUUID } from "../src/services/group_management_service"
+import { addGroup, addGroupAdmin, addMemberToGroup, listGroupMembers, getGroupForUUID, generateMerkleProof } from "../src/services/group_management_service"
 import { addVoting, assignVotingToGroup } from "../src/services/voting_management_service"
 
 import './utils/env_utils'
@@ -69,11 +69,11 @@ api.post('/groups/add', verifySignatureMiddleware, asyncHandler(async (req: Requ
 }))
 
 
-api.post('/group_admins/add', verifySignatureMiddleware, asyncHandler(async (req: Request, res: Response) => {
+api.post('/groups/:group_uuid/admins/add', verifySignatureMiddleware, asyncHandler(async (req: Request, res: Response) => {
     if (req.body.extractedAddress != process.env.ADMIN_ADDRESS)
         throw new HttpError(403, 'Only admin is allowed to add group admins!');
 
-    const group_uuid = req.body.extractedMessage.group_uuid
+    const group_uuid = req.params.group_uuid
     const group_admin = req.body.extractedMessage.group_admin
     const creator = req.body.extractedAddress
     addGroupAdmin(group_uuid, group_admin, creator)
@@ -100,12 +100,12 @@ api.post('/votings/add', verifySignatureMiddleware, asyncHandler(async (req: Req
     }))
 }))
 
-api.post('/votings_groups/add', verifySignatureMiddleware, asyncHandler(async (req: Request, res: Response) => {
+api.post('/votings/:voting_uuid/groups/add', verifySignatureMiddleware, asyncHandler(async (req: Request, res: Response) => {
     if (req.body.extractedAddress != process.env.ADMIN_ADDRESS)
         throw new HttpError(403, 'Only admin is allowed to assign groups to votings!');
 
     const group_uuid = req.body.extractedMessage.group_uuid
-    const voting_uuid = req.body.extractedMessage.voting_uuid
+    const voting_uuid = req.params.voting_uuid
     const creator = req.body.extractedAddress
     assignVotingToGroup(voting_uuid, group_uuid, creator)
     res.send(await signResponse({
@@ -147,6 +147,13 @@ api.get('/groups/:group_uuid/root', asyncHandler(async (req: Request, res: Respo
     const group_uuid = req.params.group_uuid;
     const group = await getGroupForUUID(group_uuid);
     res.send({ "root": group.root.toString() })
+}))
+
+api.get('/groups/:group_uuid/members/:commitment/merkle_proof', asyncHandler(async (req: Request, res: Response) => {
+    const group_uuid = req.params.group_uuid
+    const commitment = req.params.commitment
+    const merkle_proof = await generateMerkleProof(group_uuid, commitment)
+    res.send({ merkle_proof })
 }))
 
 api.use((err: Error, req: Request, res: Response, next: NextFunction) => {

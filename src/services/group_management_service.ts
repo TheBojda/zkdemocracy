@@ -61,3 +61,22 @@ export async function listGroupMembers(uuid: string) {
     const rows = await runQuery("SELECT m.id, commitment, identity_hash, merkle_root, proof, m.creator, m.created FROM `members` m JOIN `groups` g ON m.groups_id = g.id WHERE g.uuid = ? ORDER BY m.id", [uuid]);
     return rows
 }
+
+function bigintToString(obj: any): any {
+    if (typeof obj === 'bigint') {
+        return obj.toString();
+    } else if (Array.isArray(obj)) {
+        return obj.map(bigintToString);
+    } else if (typeof obj === 'object' && obj !== null) {
+        return Object.fromEntries(
+            Object.entries(obj).map(([key, value]) => [key, bigintToString(value)])
+        );
+    } else {
+        return obj;
+    }
+}
+
+export async function generateMerkleProof(uuid: string, commitment: string) {
+    const group = await getGroupForUUID(uuid);
+    return bigintToString(group.generateMerkleProof(group.indexOf(commitment)))
+}
