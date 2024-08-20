@@ -2,7 +2,7 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import { Wallet } from "ethers";
 import { signMessageWithNonce, verifyAndExtractMessage, getNonce } from "../src/utils/ethereum_utils"
 import { HttpError } from "../src/utils/error_utils"
-import { addGroup, addGroupAdmin, addMemberToGroup } from "../src/services/group_management_service"
+import { addGroup, addGroupAdmin, addMemberToGroup, listGroupMembers, getGroupForUUID } from "../src/services/group_management_service"
 import { addVoting, assignVotingToGroup } from "../src/services/voting_management_service"
 
 import './utils/env_utils'
@@ -135,6 +135,18 @@ api.post('/groups/:group_uuid/members/add', verifySignatureMiddleware, asyncHand
         creator,
         timestamp: new Date().toISOString()
     }))
+}))
+
+api.get('/groups/:group_uuid/members', asyncHandler(async (req: Request, res: Response) => {
+    const group_uuid = req.params.group_uuid;
+    const members = await listGroupMembers(group_uuid);
+    res.send(await signResponse(members))
+}))
+
+api.get('/groups/:group_uuid/root', asyncHandler(async (req: Request, res: Response) => {
+    const group_uuid = req.params.group_uuid;
+    const group = await getGroupForUUID(group_uuid);
+    res.send({ "root": group.root.toString() })
 }))
 
 api.use((err: Error, req: Request, res: Response, next: NextFunction) => {

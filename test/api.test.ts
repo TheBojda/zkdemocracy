@@ -3,7 +3,7 @@ import request from 'supertest';
 import { api } from '../src/api'
 import { pool } from "../src/utils/db_utils"
 import { signMessageWithNonce, verifyAndExtractMessage } from "../src/utils/ethereum_utils"
-import { rebuildGroupFromDB, clearGroupCache } from "../src/services/group_management_service"
+import { rebuildGroupFromDB, clearGroupCache, rebuildGroup } from "../src/services/group_management_service"
 import { Identity } from "@semaphore-protocol/core"
 
 const ADMIN_ADDRESS = "0x1C7bcE0821f78F952308F222E5d911312CA10400";
@@ -163,5 +163,22 @@ describe("Testing the API", () => {
 
             await expect(rebuildGroupFromDB(group_uuid)).resolves.not.toThrow();
         }
+    })
+
+    test("List group members and check root", async () => {
+        const res = await request(api).get(`/groups/${group_uuid}/members`)
+
+        if (res.status !== 200)
+            console.error(`Error: Expected status 200, but got ${res.status}, error: ${res.text}`);
+
+        const [members, address] = await verifyAndExtractMessage(res.body);
+
+        let group;
+        expect(() => {
+            group = rebuildGroup(members);
+        }).not.toThrow();
+
+        const root = (await request(api).get(`/groups/${group_uuid}/root`)).body.root;
+        expect(root).toBe(group.root.toString())
     })
 })
