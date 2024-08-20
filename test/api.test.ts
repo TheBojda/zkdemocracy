@@ -1,4 +1,4 @@
-import { describe, expect, test, afterAll, jest } from '@jest/globals';
+import { describe, expect, test, afterAll, jest, beforeAll } from '@jest/globals';
 import request from 'supertest';
 import { api } from '../src/api'
 import { pool } from "../src/utils/db_utils"
@@ -6,6 +6,7 @@ import { signMessageWithNonce, verifyAndExtractMessage } from "../src/utils/ethe
 import { uuidToHex } from "../src/utils/conversion_utils"
 import { rebuildGroupFromDB, clearGroupCache, rebuildGroup } from "../src/services/group_management_service"
 import { Identity, generateProof } from "@semaphore-protocol/core"
+import { getCurveFromName } from "ffjavascript"
 
 const ADMIN_ADDRESS = "0x1C7bcE0821f78F952308F222E5d911312CA10400";
 const ADMIN_PRIVATE_KEY = "0xb16ee57cb3c497cab8aebf284ac19bb594f7a253077c3b0c15fc8ba44b6325a5";
@@ -17,8 +18,15 @@ const SERVER_ADDRESS = "0xA3F12e07Bd15439E2A253b6DB0a4131a56058817";
 
 describe("Testing the API", () => {
 
+    let curve: any
+
+    beforeAll(async () => {
+        curve = await getCurveFromName("bn128")
+    })
+
     afterAll(async () => {
-        await pool.end();
+        await pool.end()
+        await curve.terminate()
     });
 
     let group_uuid: string;
@@ -214,7 +222,7 @@ describe("Testing the API", () => {
         const merkle_proof_res = await request(api).get(`/groups/${group_uuid}/members/${identity.commitment}/merkle_proof`)
         const merkle_proof = merkle_proof_res.body.merkle_proof
         const scope = uuidToHex(voting_uuid)
-        const proof = await generateProof(identity, merkle_proof, 1, scope) // jest don't exit because of generateProof :(
+        const proof = await generateProof(identity, merkle_proof, 1, scope)
 
         const message = {
             group_uuid: group_uuid,
