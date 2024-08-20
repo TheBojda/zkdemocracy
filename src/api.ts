@@ -3,7 +3,7 @@ import { Wallet } from "ethers";
 import { signMessageWithNonce, verifyAndExtractMessage, getNonce } from "../src/utils/ethereum_utils"
 import { HttpError } from "../src/utils/error_utils"
 import { addGroup, addGroupAdmin, addMemberToGroup, listGroupMembers, getGroupForUUID, generateMerkleProof } from "../src/services/group_management_service"
-import { addVoting, assignVotingToGroup } from "../src/services/voting_management_service"
+import { addVoting, assignVotingToGroup, addVote } from "../src/services/voting_management_service"
 
 import './utils/env_utils'
 
@@ -140,7 +140,11 @@ api.post('/groups/:group_uuid/members/add', verifySignatureMiddleware, asyncHand
 api.get('/groups/:group_uuid/members', asyncHandler(async (req: Request, res: Response) => {
     const group_uuid = req.params.group_uuid;
     const members = await listGroupMembers(group_uuid);
-    res.send(await signResponse(members))
+    res.send(await signResponse({
+        group_uuid,
+        members,
+        timestamp: new Date().toISOString()
+    }))
 }))
 
 api.get('/groups/:group_uuid/root', asyncHandler(async (req: Request, res: Response) => {
@@ -154,6 +158,21 @@ api.get('/groups/:group_uuid/members/:commitment/merkle_proof', asyncHandler(asy
     const commitment = req.params.commitment
     const merkle_proof = await generateMerkleProof(group_uuid, commitment)
     res.send({ merkle_proof })
+}))
+
+api.post('/votings/:voting_uuid/vote', asyncHandler(async (req: Request, res: Response) => {
+    const voting_uuid = req.params.voting_uuid
+    const group_uuid = req.body.group_uuid
+    const proof = req.body.proof
+
+    await addVote(voting_uuid, group_uuid, proof)
+
+    res.send(await signResponse({
+        voting_uuid,
+        group_uuid,
+        proof,
+        timestamp: new Date().toISOString()
+    }))
 }))
 
 api.use((err: Error, req: Request, res: Response, next: NextFunction) => {

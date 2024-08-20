@@ -1,10 +1,11 @@
-import { describe, expect, test, afterAll } from '@jest/globals';
+import { describe, expect, test, afterAll, jest } from '@jest/globals';
 import request from 'supertest';
 import { api } from '../src/api'
 import { pool } from "../src/utils/db_utils"
 import { signMessageWithNonce, verifyAndExtractMessage } from "../src/utils/ethereum_utils"
+import { uuidToHex } from "../src/utils/conversion_utils"
 import { rebuildGroupFromDB, clearGroupCache, rebuildGroup } from "../src/services/group_management_service"
-import { Identity } from "@semaphore-protocol/core"
+import { Identity, generateProof } from "@semaphore-protocol/core"
 
 const ADMIN_ADDRESS = "0x1C7bcE0821f78F952308F222E5d911312CA10400";
 const ADMIN_PRIVATE_KEY = "0xb16ee57cb3c497cab8aebf284ac19bb594f7a253077c3b0c15fc8ba44b6325a5";
@@ -22,6 +23,7 @@ describe("Testing the API", () => {
 
     let group_uuid: string;
     let voting_uuid: string;
+    let identity: Identity;
 
     test("Add group", async () => {
         const message = {
@@ -169,11 +171,13 @@ describe("Testing the API", () => {
         if (res.status !== 200)
             console.error(`Error: Expected status 200, but got ${res.status}, error: ${res.text}`);
 
-        const [members, address] = await verifyAndExtractMessage(res.body);
+        const [extractedMessage, address] = await verifyAndExtractMessage(res.body);
+
+        expect(extractedMessage.group_uuid).toBe(group_uuid)
 
         let group;
         expect(() => {
-            group = rebuildGroup(members);
+            group = rebuildGroup(extractedMessage.members);
         }).not.toThrow();
 
         const root = (await request(api).get(`/groups/${group_uuid}/root`)).body.root;
@@ -181,7 +185,7 @@ describe("Testing the API", () => {
     })
 
     test("Check merkle proof generation", async () => {
-        const identity = new Identity()
+        identity = new Identity()
 
         // add element
         const message = {
@@ -200,9 +204,33 @@ describe("Testing the API", () => {
         // generate merkle proof
         const res = await request(api).get(`/groups/${group_uuid}/members/${identity.commitment}/merkle_proof`)
         const merkle_proof = res.body.merkle_proof
-        
+
         const root = (await request(api).get(`/groups/${group_uuid}/root`)).body.root;
         expect(root).toBe(merkle_proof.root)
         expect(identity.commitment.toString()).toBe(merkle_proof.leaf)
+    })
+
+    test("Cast a vote", async () => {
+        const merkle_proof_res = await request(api).get(`/groups/${group_uuid}/members/${identity.commitment}/merkle_proof`)
+        const merkle_proof = merkle_proof_res.body.merkle_proof
+        const scope = uuidToHex(voting_uuid)
+        const proof = await generateProof(identity, merkle_proof, 1, scope) // jest don't exit because of generateProof :(
+
+        const message = {
+            group_uuid: group_uuid,
+            proof: proof
+        }
+
+        const res = await request(api)
+            .post(`/votings/${voting_uuid}/vote`)
+            .send(message)
+
+        if (res.status !== 200)
+            console.error(`Error: Expected status 200, but got ${res.status}, error: ${res.text}`);
+
+        const [extractedMessage, address] = await verifyAndExtractMessage(res.body);
+
+        expect(address).toBe(SERVER_ADDRESS)
+        expect(extractedMessage.voting_uuid).toBe(voting_uuid)
     })
 })
