@@ -1,6 +1,6 @@
 import { runQuery } from '../utils/db_utils'
 import { v4 as uuidv4 } from 'uuid';
-import { isAddress } from 'ethers'
+import { isAddress, keccak256, toUtf8Bytes, isHexString, concat, getBytes } from 'ethers'
 import { Group } from "@semaphore-protocol/core"
 
 export async function addGroup(name: string, creator: string) {
@@ -46,19 +46,31 @@ export async function getGroupForUUID(uuid: string): Promise<Group> {
     return groupCache.get(uuid);
 }
 
+export function computeCheckpointHashOfMember(prev_hash: string, uuid: string, commitment: string, identityHash: string, proof: string, creator: string, merkle_root: string) {
+    const fields = [uuid, commitment, identityHash, proof, creator, merkle_root]
+    const hashes = fields.map((input) => {
+        return keccak256(toUtf8Bytes(input));
+    });
+    hashes.unshift(prev_hash);
+    return keccak256(concat(hashes))
+}
+
 export async function addMemberToGroup(uuid: string, commitment: bigint, identityHash: string, proof: string, creator: string) {
     const group = await getGroupForUUID(uuid);
     group.addMember(commitment)
-
     const merkle_root = group.root.toString()
 
-    await runQuery("INSERT INTO `members` (groups_id, commitment, identity_hash, merkle_root, proof, creator) SELECT g.id, ?, ?, ?, ?, ? FROM `groups` g WHERE g.uuid = ?", [commitment, identityHash, merkle_root, proof, creator, uuid])
+    const rows = await runQuery("SELECT checkpoint_hash FROM `members` m JOIN `groups` g ON m.groups_id = g.id WHERE g.uuid = ? ORDER BY m.id DESC LIMIT 1", [uuid])
+    const prev_checkpoint_hash = rows.length > 0 ? rows[0].checkpoint_hash : '0x00';
+    const checkpoint_hash = computeCheckpointHashOfMember(prev_checkpoint_hash, uuid, commitment.toString(), identityHash, proof, creator, merkle_root)
+
+    await runQuery("INSERT INTO `members` (groups_id, commitment, identity_hash, merkle_root, proof, creator, checkpoint_hash) SELECT g.id, ?, ?, ?, ?, ?, ? FROM `groups` g WHERE g.uuid = ?", [commitment, identityHash, merkle_root, proof, creator, checkpoint_hash, uuid])
 
     return merkle_root
 }
 
 export async function listGroupMembers(uuid: string) {
-    const rows = await runQuery("SELECT m.id, commitment, identity_hash, merkle_root, proof, m.creator, m.created FROM `members` m JOIN `groups` g ON m.groups_id = g.id WHERE g.uuid = ? ORDER BY m.id", [uuid]);
+    const rows = await runQuery("SELECT m.id, commitment, identity_hash, merkle_root, proof, m.creator, m.created, checkpoint_hash FROM `members` m JOIN `groups` g ON m.groups_id = g.id WHERE g.uuid = ? ORDER BY m.id", [uuid]);
     return rows
 }
 

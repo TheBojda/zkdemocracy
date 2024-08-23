@@ -4,7 +4,7 @@ import { api } from '../src/api'
 import { pool } from "../src/utils/db_utils"
 import { signMessageWithNonce, verifyAndExtractMessage } from "../src/utils/ethereum_utils"
 import { uuidToHex } from "../src/utils/conversion_utils"
-import { rebuildGroupFromDB, clearGroupCache, rebuildGroup } from "../src/services/group_management_service"
+import { rebuildGroupFromDB, clearGroupCache, rebuildGroup, computeCheckpointHashOfMember } from "../src/services/group_management_service"
 import { Identity, generateProof } from "@semaphore-protocol/core"
 import { getCurveFromName } from "ffjavascript"
 
@@ -173,7 +173,7 @@ describe("Testing the API", () => {
         }
     })
 
-    test("List group members and check root", async () => {
+    test("List group members and check root and checkpoint hash", async () => {
         const res = await request(api).get(`/groups/${group_uuid}/members`)
 
         if (res.status !== 200)
@@ -183,6 +183,7 @@ describe("Testing the API", () => {
 
         expect(extractedMessage.group_uuid).toBe(group_uuid)
 
+        // recalculate merkle root of the group
         let group;
         expect(() => {
             group = rebuildGroup(extractedMessage.members);
@@ -190,6 +191,14 @@ describe("Testing the API", () => {
 
         const root = (await request(api).get(`/groups/${group_uuid}/root`)).body.root;
         expect(root).toBe(group.root.toString())
+
+        // recalculate checkpoint hashes
+        let prev_checkpoint_hash = '0x00'
+        for (const member of extractedMessage.members) {
+            const checkpoint_hash = computeCheckpointHashOfMember(prev_checkpoint_hash, group_uuid, member.commitment, member.identity_hash, member.proof, member.creator, member.merkle_root)
+            expect(checkpoint_hash).toBe(member.checkpoint_hash)
+            prev_checkpoint_hash = checkpoint_hash
+        }
     })
 
     test("Check merkle proof generation", async () => {
@@ -205,9 +214,12 @@ describe("Testing the API", () => {
 
         const nonce = (await request(api).get(`/nonces/${ADMIN_ADDRESS}`)).body.nonce;
         const payload = await signMessageWithNonce(message, ADMIN_PRIVATE_KEY, nonce)
-        await request(api)
+        const add_res = await request(api)
             .post(`/groups/${group_uuid}/members/add`)
             .send(payload)
+
+        if (add_res.status !== 200)
+            console.error(`Error: Expected status 200, but got ${add_res.status}, error: ${add_res.text}`);
 
         // generate merkle proof
         const res = await request(api).get(`/groups/${group_uuid}/members/${identity.commitment}/merkle_proof`)
@@ -241,4 +253,5 @@ describe("Testing the API", () => {
         expect(address).toBe(SERVER_ADDRESS)
         expect(extractedMessage.voting_uuid).toBe(voting_uuid)
     })
+
 })
