@@ -5,6 +5,7 @@ import { pool } from "../src/utils/db_utils"
 import { signMessageWithNonce, verifyAndExtractMessage } from "../src/utils/ethereum_utils"
 import { uuidToHex } from "../src/utils/conversion_utils"
 import { rebuildGroupFromDB, clearGroupCache, rebuildGroup, computeCheckpointHashOfMember } from "../src/services/group_management_service"
+import { computeCheckpointHashOfVote } from "../src/services/voting_management_service"
 import { Identity, generateProof } from "@semaphore-protocol/core"
 import { getCurveFromName } from "ffjavascript"
 
@@ -31,7 +32,7 @@ describe("Testing the API", () => {
 
     let group_uuid: string;
     let voting_uuid: string;
-    let identity: Identity;
+    let identity_list: Identity[] = [];
 
     test("Add group", async () => {
         const message = {
@@ -202,56 +203,75 @@ describe("Testing the API", () => {
     })
 
     test("Check merkle proof generation", async () => {
-        identity = new Identity()
+        for (let i = 0; i < 10; i++) {
+            identity_list.push(new Identity())
 
-        // add element
-        const message = {
-            path: `/groups/${group_uuid}/members/add`,
-            commitment: identity.commitment.toString(),
-            identity_hash: identity.commitment.toString(), // in real world apps, use real identity hash like number if ID card, etc.
-            proof: 'proof',
+            // add element
+            const message = {
+                path: `/groups/${group_uuid}/members/add`,
+                commitment: identity_list[i].commitment.toString(),
+                identity_hash: identity_list[i].commitment.toString(), // in real world apps, use real identity hash like number if ID card, etc.
+                proof: 'proof',
+            }
+
+            const nonce = (await request(api).get(`/nonces/${ADMIN_ADDRESS}`)).body.nonce;
+            const payload = await signMessageWithNonce(message, ADMIN_PRIVATE_KEY, nonce)
+            const add_res = await request(api)
+                .post(`/groups/${group_uuid}/members/add`)
+                .send(payload)
+
+            if (add_res.status !== 200)
+                console.error(`Error: Expected status 200, but got ${add_res.status}, error: ${add_res.text}`);
+
+            // generate merkle proof
+            const res = await request(api).get(`/groups/${group_uuid}/members/${identity_list[i].commitment}/merkle_proof`)
+            const merkle_proof = res.body.merkle_proof
+
+            const root = (await request(api).get(`/groups/${group_uuid}/root`)).body.root;
+            expect(root).toBe(merkle_proof.root)
+            expect(identity_list[i].commitment.toString()).toBe(merkle_proof.leaf)
         }
-
-        const nonce = (await request(api).get(`/nonces/${ADMIN_ADDRESS}`)).body.nonce;
-        const payload = await signMessageWithNonce(message, ADMIN_PRIVATE_KEY, nonce)
-        const add_res = await request(api)
-            .post(`/groups/${group_uuid}/members/add`)
-            .send(payload)
-
-        if (add_res.status !== 200)
-            console.error(`Error: Expected status 200, but got ${add_res.status}, error: ${add_res.text}`);
-
-        // generate merkle proof
-        const res = await request(api).get(`/groups/${group_uuid}/members/${identity.commitment}/merkle_proof`)
-        const merkle_proof = res.body.merkle_proof
-
-        const root = (await request(api).get(`/groups/${group_uuid}/root`)).body.root;
-        expect(root).toBe(merkle_proof.root)
-        expect(identity.commitment.toString()).toBe(merkle_proof.leaf)
     })
 
-    test("Cast a vote", async () => {
-        const merkle_proof_res = await request(api).get(`/groups/${group_uuid}/members/${identity.commitment}/merkle_proof`)
-        const merkle_proof = merkle_proof_res.body.merkle_proof
-        const scope = uuidToHex(voting_uuid)
-        const proof = await generateProof(identity, merkle_proof, 1, scope)
+    test("Cast votes", async () => {
+        for (let i = 0; i < 10; i++) {
+            const merkle_proof_res = await request(api).get(`/groups/${group_uuid}/members/${identity_list[i].commitment}/merkle_proof`)
+            const merkle_proof = merkle_proof_res.body.merkle_proof
+            const scope = uuidToHex(voting_uuid)
+            const proof = await generateProof(identity_list[i], merkle_proof, Math.floor(Math.random() * 4) + 1, scope)
 
-        const message = {
-            group_uuid: group_uuid,
-            proof: proof
+            const message = {
+                group_uuid: group_uuid,
+                proof: proof
+            }
+
+            const res = await request(api)
+                .post(`/votings/${voting_uuid}/vote`)
+                .send(message)
+
+            if (res.status !== 200)
+                console.error(`Error: Expected status 200, but got ${res.status}, error: ${res.text}`);
+
+            const [extractedMessage, address] = await verifyAndExtractMessage(res.body);
+
+            expect(address).toBe(SERVER_ADDRESS)
+            expect(extractedMessage.voting_uuid).toBe(voting_uuid)
         }
+    }, 15000)
 
-        const res = await request(api)
-            .post(`/votings/${voting_uuid}/vote`)
-            .send(message)
+    test("List votes and check checkpoint hashes", async () => {
+        const res = await request(api).get(`/votings/${voting_uuid}/votes`)
 
         if (res.status !== 200)
             console.error(`Error: Expected status 200, but got ${res.status}, error: ${res.text}`);
 
         const [extractedMessage, address] = await verifyAndExtractMessage(res.body);
-
-        expect(address).toBe(SERVER_ADDRESS)
-        expect(extractedMessage.voting_uuid).toBe(voting_uuid)
+        let prev_checkpoint_hash = '0x00'
+        for (const vote of extractedMessage.votes) {
+            const checkpoint_hash = computeCheckpointHashOfVote(prev_checkpoint_hash, voting_uuid, group_uuid, vote.nullifier, vote.merkle_root, vote.proof, vote.vote)
+            expect(checkpoint_hash).toBe(vote.checkpoint_hash)
+            prev_checkpoint_hash = checkpoint_hash
+        }
     })
 
 })

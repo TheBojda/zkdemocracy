@@ -3,7 +3,7 @@ import { Wallet } from "ethers";
 import { signMessageWithNonce, verifyAndExtractMessage, getNonce } from "../src/utils/ethereum_utils"
 import { HttpError } from "../src/utils/error_utils"
 import { addGroup, addGroupAdmin, addMemberToGroup, listGroupMembers, getGroupForUUID, generateMerkleProof } from "../src/services/group_management_service"
-import { addVoting, assignVotingToGroup, addVote } from "../src/services/voting_management_service"
+import { addVoting, assignVotingToGroup, addVote, listVotes } from "../src/services/voting_management_service"
 
 import './utils/env_utils'
 
@@ -171,6 +171,16 @@ api.post('/votings/:voting_uuid/vote', asyncHandler(async (req: Request, res: Re
         voting_uuid,
         group_uuid,
         proof,
+        timestamp: new Date().toISOString()
+    }))
+}))
+
+api.get('/votings/:voting_uuid/votes', asyncHandler(async (req: Request, res: Response) => {
+    const voting_uuid = req.params.voting_uuid;
+    const votes = await listVotes(voting_uuid);
+    res.send(await signResponse({
+        voting_uuid,
+        votes,
         timestamp: new Date().toISOString()
     }))
 }))
