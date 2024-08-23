@@ -1,6 +1,6 @@
 import { runQuery } from '../utils/db_utils'
 import { v4 as uuidv4 } from 'uuid';
-import { isAddress, keccak256, toUtf8Bytes, isHexString, concat, getBytes } from 'ethers'
+import { isAddress, keccak256, toUtf8Bytes, concat} from 'ethers'
 import { Group } from "@semaphore-protocol/core"
 
 export async function addGroup(name: string, creator: string) {

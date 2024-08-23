@@ -6,6 +6,9 @@ CREATE TABLE `votes` (
     `merkle_root` varchar(255) NOT NULL,
     `proof` text NOT NULL,
     `vote` varchar(255) NOT NULL,
+    `checkpoint_hash` varchar(255) NOT NULL,
     `created` timestamp DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`)
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `unique_groups_votings_nullifier` (`groups_id`, `votings_id`, `nullifier`),
+    INDEX `index_votings_id` (`votings_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
