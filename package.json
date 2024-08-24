@@ -12,7 +12,7 @@
     "init:database": "ts-node scripts/init_database.ts",
     "generate:ethereum_account": "ts-node scripts/generate_ethereum_account.ts",
     "start": "nodemon src/main.ts",
-    "build": "tsc",
+    "build": "tsc --outDir ./dist",
     "test": "jest --detectOpenHandles"
   },
   "devDependencies": {
