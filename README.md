@@ -1,6 +1,40 @@
 # zkdemocracy
 A ready-to-use anonymous voting system based on Semaphore zero-knowledge group management library
 
+The system can be used in standalone mode when a web or mobile client connects directly to the zkDemocracy backend. With this architecture, we can organize simpler voting processes.
+
+In more complex cases, where there are multiple locations, many users, and a separate subsystem responsible for user identification, or use blockchain checkpoints to ensure the voting process, etc. zkDemocracy can integrate into the system as a service.
+
+## Basics
+
+The two fundamental elements of zkDemocracy are **groups** and **votings**.
+
+The "groups" represent a group of voters. This could be, for example, the voters of an electoral district, the shareholders of a company, members of a smaller community, members of a DAO, or any other group.
+
+The "votings" represent a voting event. This could be a presidential election, a referendum, a corporate decision-making process, or any other type of voting.
+
+Multiple groups can participate in a voting event. For example, in a presidential election, the members of all electoral districts can vote, and the results of the vote are aggregated.
+
+Similarly, a group can participate in multiple voting events. For example, the shareholders of a company can hold several votes.
+
+Groups and votings have an n-to-m relationship with each other.
+
+## Security
+
+zkDemocracy is built on the [Semaphore library](https://semaphore.pse.dev/) developed by PSE. The zero-knowledge proof technology used by the library mathematically guarantees the anonymity of the voter.
+
+Since zkDemocracy is a blockchain-free solution that can be easily deployed, we developed a custom mechanism that provides blockchain-level security over a MySQL database.
+
+Similar to Ethereum transactions, in the case of zkDemocracy, every API call that modifies the database must be digitally signed. For digital signatures, we use standard Ethereum ECDSA signatures, allowing the standard tools used in Ethereum (e.g., software and hardware wallets) to be utilized.
+
+Similar to a blockchain, the data in the zkDemocracy "groups" and "votings" tables is publicly accessible. Anyone can query this information through the API, and the server digitally signs the response, making the reply can be used as proof. If anyone later makes unauthorized modifications to the database (e.g., deleting a voter or a vote), this can be proven using the digitally signed copy of the previous version of the database.
+
+Whenever a row is inserted into the database, the system calculates a checkpoint hash. The checkpoint hash is a keccak256 hash generated from the contents of the database fields and the checkpoint hash of the previous row. Since the hashes are chained together, similar to blockchain block hashes, the checkpoint hash of the last row is unique for the entire content of the database. If anything changes in the database, the checkpoint hash of every row after the modified one will change. The checkpoint hash is always included in the digitally signed API response, which can be used to prove any modification of the database.
+
+If enhanced security is needed, external audit systems can periodically (e.g., every 10 minutes) query and store the digitally signed checkpoint hash. This makes it impossible to modify the database after the storage of the hash. The checkpoint hash can even be written to a blockchain, ensuring its secure storage.
+
+At the end of the voting process, the list of votes can be queried in detail, and the zero-knowledge proof associated with each vote can be verified, ensuring that each vote comes from a member of the linked group. Additionally, everyone can verify their own vote. If any changes are detected (e.g., a vote was deleted or altered), the voter can prove fraud using the digitally signed proof received from the system.
+
 ## System setup
 
 ### For development and testing
