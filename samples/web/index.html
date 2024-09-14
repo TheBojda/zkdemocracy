@@ -5,9 +5,32 @@
   <meta charset="utf-8" />
   <title>zkDemocracy web sample</title>
   <script type="module" src="main.ts"></script>
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+    }
+
+    #log {
+      border: 1px solid #ccc;
+      height: 100vh;
+      /* Full viewport height */
+      width: 100vw;
+      /* Full viewport width */
+      overflow-y: scroll;
+      background-color: #f9f9f9;
+      padding: 10px;
+      box-sizing: border-box;
+      /* Ensures padding is included in the element's size */
+    }
+  </style>
+
 </head>
 
 <body>
+  <div id="log"></div>
 </body>
 
 </html>

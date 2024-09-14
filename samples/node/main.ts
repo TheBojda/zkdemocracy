@@ -120,7 +120,7 @@ async function main() {
         group_uuid: group.uuid,
         proof
     })
-    console.log(vote)
+    console.log(await verifyAndExtractMessage(vote))
 
     // process.exit(0)
 

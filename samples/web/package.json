@@ -8,6 +8,19 @@
   "author": "Laszlo Fazekas <thebojda@gmail.com>",
   "license": "MIT",
   "devDependencies": {
-    "parcel": "^2.12.0"
+    "parcel": "^2.12.0",
+    "path-browserify": "^1.0.0",
+    "stream-browserify": "^3.0.0"
+  },
+  "dependencies": {
+    "@semaphore-protocol/identity": "^4.0.3",
+    "@semaphore-protocol/proof": "^4.0.3",
+    "ethers": "^6.13.2"
+  },
+  "alias": {
+    "@zk-kit/utils": "@zk-kit/utils/dist/lib.commonjs",
+    "@zk-kit/artifacts": "@zk-kit/artifacts/dist/index.browser.js",
+    "@semaphore-protocol/utils": "@semaphore-protocol/utils/dist/lib.commonjs",
+    "ethers": "ethers/lib.commonjs"
   }
 }
