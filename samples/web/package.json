@@ -1,0 +1,13 @@
+{
+  "name": "zkdemocracy-web-sample",
+  "version": "1.0.0",
+  "description": "zkDemocracy web sample",
+  "scripts": {
+    "start": "parcel index.html"
+  },
+  "author": "Laszlo Fazekas <thebojda@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "parcel": "^2.12.0"
+  }
+}

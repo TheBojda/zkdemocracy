@@ -5,7 +5,7 @@
   "scripts": {
     "start": "ts-node main.ts"
   },
-  "author": "",
+  "author": "Laszlo Fazekas <thebojda@gmail.com>",
   "license": "MIT",
   "dependencies": {
     "@semaphore-protocol/core": "^4.0.3",
