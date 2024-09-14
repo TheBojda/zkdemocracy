@@ -44,9 +44,16 @@ export async function addVote(voting_uuid: string, group_uuid: string, proof: Se
     const checkpoint_hash = computeCheckpointHashOfVote(prev_checkpoint_hash, voting_uuid, group_uuid, proof.nullifier, proof.merkleTreeRoot, JSON.stringify(proof), proof.message)
 
     await runQuery("INSERT INTO votes (votings_id, groups_id, nullifier, merkle_root, proof, vote, checkpoint_hash) VALUES ((SELECT id FROM votings WHERE uuid = ?), (SELECT id FROM `groups` WHERE uuid = ?), ?, ?, ?, ?, ?)", [voting_uuid, group_uuid, proof.nullifier, proof.merkleTreeRoot, JSON.stringify(proof), proof.message, checkpoint_hash])
+
+    return checkpoint_hash
 }
 
 export async function listVotes(voting_uuid: string) {
     const rows = await runQuery("SELECT v.id, (SELECT uuid FROM `groups` WHERE id = v.groups_id) as group_uuid, nullifier, merkle_root, proof, vote, checkpoint_hash FROM `votes` v JOIN `votings` vo ON v.votings_id = vo.id WHERE vo.uuid = ? ORDER BY v.id", [voting_uuid])
     return rows
+}
+
+export async function getVotesCheckpointHash(voting_uuid: string) {
+    const rows = await runQuery("SELECT checkpoint_hash FROM `votes` v JOIN `votings` vo ON v.votings_id = vo.id WHERE vo.uuid = ? ORDER BY v.id DESC LIMIT 1", [voting_uuid])
+    return rows.length > 0 ? rows[0].checkpoint_hash : 0;
 }

@@ -2,8 +2,8 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import { Wallet } from "ethers";
 import { signMessageWithNonce, verifyAndExtractMessage, getNonce } from "../src/utils/ethereum_utils"
 import { HttpError } from "../src/utils/error_utils"
-import { addGroup, addGroupAdmin, addMemberToGroup, listGroupMembers, getGroupForUUID, generateMerkleProof } from "../src/services/group_management_service"
-import { addVoting, assignVotingToGroup, addVote, listVotes } from "../src/services/voting_management_service"
+import { addGroup, addGroupAdmin, addMemberToGroup, listGroupMembers, getGroupForUUID, generateMerkleProof, getGroupCheckpointHash } from "../src/services/group_management_service"
+import { addVoting, assignVotingToGroup, addVote, listVotes, getVotesCheckpointHash } from "../src/services/voting_management_service"
 
 import './utils/env_utils'
 
@@ -125,13 +125,14 @@ api.post('/groups/:group_uuid/members/add', verifySignatureMiddleware, asyncHand
     const identity_hash = req.body.extractedMessage.identity_hash;
     const proof = req.body.extractedMessage.proof;
     const creator = req.body.extractedAddress;
-    const merkle_root = await addMemberToGroup(group_uuid, commitment, identity_hash, proof, creator)
+    const { merkle_root, checkpoint_hash } = await addMemberToGroup(group_uuid, commitment, identity_hash, proof, creator)
     res.send(await signResponse({
         group_uuid,
         commitment,
         identity_hash,
         proof,
         merkle_root,
+        checkpoint_hash,
         creator,
         timestamp: new Date().toISOString()
     }))
@@ -153,6 +154,16 @@ api.get('/groups/:group_uuid/root', asyncHandler(async (req: Request, res: Respo
     res.send({ "root": group.root.toString() })
 }))
 
+api.get('/groups/:group_uuid/checkpoint_hash', asyncHandler(async (req: Request, res: Response) => {
+    const group_uuid = req.params.group_uuid;
+    const checkpoint_hash = await getGroupCheckpointHash(group_uuid);
+    res.send(await signResponse({
+        group_uuid,
+        checkpoint_hash,
+        timestamp: new Date().toISOString()
+    }))
+}))
+
 api.get('/groups/:group_uuid/members/:commitment/merkle_proof', asyncHandler(async (req: Request, res: Response) => {
     const group_uuid = req.params.group_uuid
     const commitment = req.params.commitment
@@ -164,13 +175,13 @@ api.post('/votings/:voting_uuid/vote', asyncHandler(async (req: Request, res: Re
     const voting_uuid = req.params.voting_uuid
     const group_uuid = req.body.group_uuid
     const proof = req.body.proof
-
-    await addVote(voting_uuid, group_uuid, proof)
+    const checkpoint_hash = await addVote(voting_uuid, group_uuid, proof)
 
     res.send(await signResponse({
         voting_uuid,
         group_uuid,
         proof,
+        checkpoint_hash,
         timestamp: new Date().toISOString()
     }))
 }))
@@ -181,6 +192,16 @@ api.get('/votings/:voting_uuid/votes', asyncHandler(async (req: Request, res: Re
     res.send(await signResponse({
         voting_uuid,
         votes,
+        timestamp: new Date().toISOString()
+    }))
+}))
+
+api.get('/votings/:voting_uuid/checkpoint_hash', asyncHandler(async (req: Request, res: Response) => {
+    const voting_uuid = req.params.voting_uuid;
+    const checkpoint_hash = await getVotesCheckpointHash(voting_uuid);
+    res.send(await signResponse({
+        voting_uuid,
+        checkpoint_hash,
         timestamp: new Date().toISOString()
     }))
 }))

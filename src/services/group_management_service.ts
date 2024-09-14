@@ -1,6 +1,6 @@
 import { runQuery } from '../utils/db_utils'
 import { v4 as uuidv4 } from 'uuid';
-import { isAddress, keccak256, toUtf8Bytes, concat} from 'ethers'
+import { isAddress, keccak256, toUtf8Bytes, concat } from 'ethers'
 import { Group } from "@semaphore-protocol/core"
 
 export async function addGroup(name: string, creator: string) {
@@ -66,12 +66,17 @@ export async function addMemberToGroup(uuid: string, commitment: bigint, identit
 
     await runQuery("INSERT INTO `members` (groups_id, commitment, identity_hash, merkle_root, proof, creator, checkpoint_hash) SELECT g.id, ?, ?, ?, ?, ?, ? FROM `groups` g WHERE g.uuid = ?", [commitment, identityHash, merkle_root, proof, creator, checkpoint_hash, uuid])
 
-    return merkle_root
+    return { merkle_root, checkpoint_hash }
 }
 
 export async function listGroupMembers(uuid: string) {
     const rows = await runQuery("SELECT m.id, commitment, identity_hash, merkle_root, proof, m.creator, m.created, checkpoint_hash FROM `members` m JOIN `groups` g ON m.groups_id = g.id WHERE g.uuid = ? ORDER BY m.id", [uuid]);
     return rows
+}
+
+export async function getGroupCheckpointHash(uuid: string) {
+    const rows = await runQuery("SELECT checkpoint_hash FROM `members` m JOIN `groups` g ON m.groups_id = g.id WHERE g.uuid = ? ORDER BY m.id DESC LIMIT 1", [uuid]);
+    return rows.length > 0 ? rows[0].checkpoint_hash : 0;
 }
 
 function bigintToString(obj: any): any {
