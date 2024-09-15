@@ -1,6 +1,6 @@
 {
   "name": "zkdemocracy",
-  "version": "1.0.0",
+  "version": "0.5.0",
   "description": "A ready-to-use anonymous voting system based on Semaphore zero-knowledge group management library",
   "repository": "https://github.com/TheBojda/zkdemocracy.git",
   "author": "Laszlo Fazekas <thebojda@gmail.com>",
