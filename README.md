@@ -1,6 +1,10 @@
 # zkdemocracy
 A ready-to-use anonymous voting system based on Semaphore zero-knowledge group management library
 
+> Representative democracy is facing challenges, and new, more direct solutions are needed. zkDemocracy is a proof of concept that shows we can organize anonymous digital voting affordably, allowing people to participate in decision-making.
+
+My article on HackerNoon about the project: [https://hackernoon.com/zkdemocracy-the-easiest-solution-for-zero-knowledge-proof-based-anonymous-voting](https://hackernoon.com/zkdemocracy-the-easiest-solution-for-zero-knowledge-proof-based-anonymous-voting)
+
 The system can be used in standalone mode when a web or mobile client connects directly to the zkDemocracy backend. With this architecture, we can organize simpler voting processes.
 
 In more complex cases, where there are multiple locations, many users, and a separate subsystem responsible for user identification, or use blockchain checkpoints to ensure the voting process, etc. zkDemocracy can integrate into the system as a service.
